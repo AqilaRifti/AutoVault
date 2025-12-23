@@ -1,0 +1,7 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  # do NOT set publish here; the plugin will handle Next's output
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
