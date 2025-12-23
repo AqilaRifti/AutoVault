@@ -1,0 +1,12 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0xec2C84d2AE3C7e385beAbcC77a96cfaE89301E4B",
+  "timestamp": "2025-12-23T09:47:15.213Z",
+  "contracts": {
+    "mnee": "0xB69a340155d16D963A8173Cb3A6cBF4093aB26E9",
+    "smartVault": "0x47846df5e07ffd869C50871de328AF21D3CEF4D3",
+    "goalLocker": "0xCDFdCdBbf3a11e9FA661F8DF3D1B2c6825F12252",
+    "dcaExecutor": "0x6602c410F6aB155BA7fBaB056CB394F21D19927C"
+  }
+}
