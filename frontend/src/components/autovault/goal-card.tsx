@@ -3,10 +3,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatEther } from 'viem';
-import { motion } from 'motion/react';
-import { Target, Calendar, Trophy, Lock, Unlock, Plus } from 'lucide-react';
-import { useMemo } from 'react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { motion, useSpring, useTransform } from 'motion/react';
+import { Target, Calendar, Trophy, Lock, Unlock, Plus, Sparkles } from 'lucide-react';
+import { useMemo, useEffect } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { milestones } from '@/lib/design-tokens';
 
 interface GoalCardProps {
     goal: {
@@ -24,9 +26,59 @@ interface GoalCardProps {
     onDeposit?: () => void;
     onWithdraw?: () => void;
     isPending?: boolean;
+    className?: string;
 }
 
-export function GoalCard({ goal, onDeposit, onWithdraw, isPending }: GoalCardProps) {
+// Get gradient class based on progress
+function getGradientClass(progressPercent: number): string {
+    if (progressPercent >= 100) {
+        return 'bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-950/30 dark:to-yellow-900/20';
+    }
+    if (progressPercent >= 25) {
+        return 'bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-950/30 dark:to-teal-900/20';
+    }
+    return 'bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-900/30 dark:to-slate-800/20';
+}
+
+// Milestone badge component
+function MilestoneBadge({
+    milestone,
+    isAchieved
+}: {
+    milestone: number;
+    isAchieved: boolean;
+}) {
+    const badgeClasses: Record<number, string> = {
+        25: 'bg-blue-500 text-white',
+        50: 'bg-yellow-500 text-white',
+        75: 'bg-orange-500 text-white',
+        100: 'bg-green-500 text-white',
+    };
+
+    return (
+        <motion.div
+            initial={isAchieved ? { scale: 0 } : false}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className={cn(
+                'w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300',
+                isAchieved ? badgeClasses[milestone] : 'bg-muted text-muted-foreground'
+            )}
+            data-testid={`milestone-badge-${milestone}`}
+            data-achieved={isAchieved}
+        >
+            {milestone}
+        </motion.div>
+    );
+}
+
+export function GoalCard({
+    goal,
+    onDeposit,
+    onWithdraw,
+    isPending,
+    className,
+}: GoalCardProps) {
     const formattedCurrent = useMemo(() => {
         return parseFloat(formatEther(goal.currentAmount)).toLocaleString(undefined, {
             minimumFractionDigits: 2,
@@ -49,39 +101,77 @@ export function GoalCard({ goal, onDeposit, onWithdraw, isPending }: GoalCardPro
         return formatDistanceToNow(deadlineDate, { addSuffix: true });
     }, [goal.deadline]);
 
-    const milestoneColors = {
-        0: 'bg-gray-200',
-        25: 'bg-blue-500',
-        50: 'bg-yellow-500',
-        75: 'bg-orange-500',
-        100: 'bg-green-500',
-    };
+    // Animated progress for the ring
+    const springProgress = useSpring(0, { stiffness: 60, damping: 20 });
+    const circumference = 2 * Math.PI * 56; // radius = 56
+
+    useEffect(() => {
+        springProgress.set(goal.progressPercent);
+    }, [goal.progressPercent, springProgress]);
+
+    const strokeDasharray = useTransform(
+        springProgress,
+        (value) => `${(value / 100) * circumference} ${circumference}`
+    );
+
+    const gradientClass = getGradientClass(goal.progressPercent);
 
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ y: -4 }}
             transition={{ duration: 0.3 }}
+            className={className}
         >
-            <Card className={`relative overflow-hidden ${goal.isCompleted ? 'border-green-500' : ''}`}>
+            <Card
+                className={cn(
+                    'relative overflow-hidden transition-all duration-300 card-hover-shadow',
+                    gradientClass,
+                    goal.isCompleted && 'ring-2 ring-green-500/50'
+                )}
+                data-testid="goal-card"
+                data-progress={goal.progressPercent}
+            >
+                {/* Completed trophy */}
                 {goal.isCompleted && (
-                    <div className="absolute top-2 right-2">
-                        <Trophy className="h-5 w-5 text-yellow-500" />
-                    </div>
+                    <motion.div
+                        initial={{ scale: 0, rotate: -20 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        className="absolute top-3 right-3"
+                    >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30">
+                            <Trophy className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                        </div>
+                    </motion.div>
                 )}
 
-                <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
+                {/* Unlocked celebration indicator */}
+                {goal.isUnlocked && !goal.isWithdrawn && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="absolute top-3 left-3"
+                    >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                            <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                    </motion.div>
+                )}
+
+                <CardHeader className="pb-2 pt-4">
+                    <div className="flex items-center justify-center gap-2">
                         <Target className="h-5 w-5 text-primary" />
-                        <CardTitle className="text-lg font-semibold">{goal.name}</CardTitle>
+                        <CardTitle className="text-lg font-semibold text-center">{goal.name}</CardTitle>
                     </div>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                    {/* Progress circle */}
+                    {/* Progress circle with animated ring */}
                     <div className="flex items-center justify-center">
                         <div className="relative w-32 h-32">
-                            <svg className="w-full h-full transform -rotate-90">
+                            <svg className="w-full h-full" viewBox="0 0 128 128">
+                                {/* Background track */}
                                 <circle
                                     cx="64"
                                     cy="64"
@@ -89,8 +179,9 @@ export function GoalCard({ goal, onDeposit, onWithdraw, isPending }: GoalCardPro
                                     stroke="currentColor"
                                     strokeWidth="8"
                                     fill="none"
-                                    className="text-muted"
+                                    className="text-muted/50"
                                 />
+                                {/* Animated progress ring */}
                                 <motion.circle
                                     cx="64"
                                     cy="64"
@@ -100,18 +191,20 @@ export function GoalCard({ goal, onDeposit, onWithdraw, isPending }: GoalCardPro
                                     fill="none"
                                     strokeLinecap="round"
                                     className="text-primary"
-                                    initial={{ strokeDasharray: '0 352' }}
-                                    animate={{
-                                        strokeDasharray: `${(goal.progressPercent / 100) * 352} 352`,
+                                    style={{
+                                        strokeDasharray,
+                                        transform: 'rotate(-90deg)',
+                                        transformOrigin: '50% 50%',
                                     }}
-                                    transition={{ duration: 1, ease: 'easeOut' }}
+                                    data-testid="goal-progress-ring"
                                 />
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                                 <motion.span
                                     className="text-2xl font-bold"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
+                                    key={goal.progressPercent}
+                                    initial={{ scale: 1.2, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
                                 >
                                     {goal.progressPercent}%
                                 </motion.span>
@@ -123,22 +216,19 @@ export function GoalCard({ goal, onDeposit, onWithdraw, isPending }: GoalCardPro
                     {/* Amount display */}
                     <div className="text-center">
                         <p className="text-lg font-semibold">
-                            ${formattedCurrent} <span className="text-muted-foreground">/ ${formattedTarget}</span>
+                            ${formattedCurrent}
+                            <span className="text-muted-foreground font-normal"> / ${formattedTarget}</span>
                         </p>
                     </div>
 
-                    {/* Milestones */}
+                    {/* Milestone badges */}
                     <div className="flex justify-center gap-2">
-                        {[25, 50, 75, 100].map((milestone) => (
-                            <div
+                        {milestones.map((milestone) => (
+                            <MilestoneBadge
                                 key={milestone}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${goal.lastMilestone >= milestone
-                                    ? milestoneColors[milestone as keyof typeof milestoneColors] + ' text-white'
-                                    : 'bg-muted text-muted-foreground'
-                                    }`}
-                            >
-                                {milestone}
-                            </div>
+                                milestone={milestone}
+                                isAchieved={goal.lastMilestone >= milestone}
+                            />
                         ))}
                     </div>
 
@@ -151,37 +241,37 @@ export function GoalCard({ goal, onDeposit, onWithdraw, isPending }: GoalCardPro
                     )}
 
                     {/* Lock status */}
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center justify-center">
                         {goal.isUnlocked ? (
-                            <span className="flex items-center gap-1 text-sm text-green-600">
+                            <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
                                 <Unlock className="h-4 w-4" />
-                                Unlocked
+                                Ready to withdraw
                             </span>
                         ) : (
-                            <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                                 <Lock className="h-4 w-4" />
-                                Locked
+                                Locked until target reached
                             </span>
                         )}
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 pt-2">
                         {!goal.isWithdrawn && (
                             <>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="flex-1"
+                                    className="flex-1 touch-target"
                                     onClick={onDeposit}
                                     disabled={goal.isCompleted || isPending}
                                 >
-                                    <Plus className="h-4 w-4 mr-1" />
+                                    <Plus className="h-4 w-4 mr-1.5" />
                                     Add Funds
                                 </Button>
                                 <Button
                                     size="sm"
-                                    className="flex-1"
+                                    className="flex-1 touch-target"
                                     onClick={onWithdraw}
                                     disabled={!goal.isUnlocked || isPending}
                                 >
@@ -190,13 +280,56 @@ export function GoalCard({ goal, onDeposit, onWithdraw, isPending }: GoalCardPro
                             </>
                         )}
                         {goal.isWithdrawn && (
-                            <p className="text-sm text-center text-muted-foreground w-full">
-                                Goal completed & withdrawn
-                            </p>
+                            <div className="w-full text-center py-2">
+                                <span className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                                    <Trophy className="h-4 w-4 text-yellow-500" />
+                                    Goal completed & withdrawn
+                                </span>
+                            </div>
                         )}
                     </div>
                 </CardContent>
             </Card>
         </motion.div>
+    );
+}
+
+// Compact goal card for dashboard
+export function GoalCardCompact({
+    goal,
+    onClick,
+}: {
+    goal: GoalCardProps['goal'];
+    onClick?: () => void;
+}) {
+    return (
+        <motion.button
+            onClick={onClick}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full text-left"
+        >
+            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Target className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                        <p className="font-medium">{goal.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                            {goal.progressPercent}% complete
+                        </p>
+                    </div>
+                </div>
+                <div className="h-2 w-20 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                        className="h-full bg-primary rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${goal.progressPercent}%` }}
+                        transition={{ duration: 0.5 }}
+                    />
+                </div>
+            </div>
+        </motion.button>
     );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useGoals, type Goal } from '@/hooks/use-goals';
 import { useMNEE } from '@/hooks/use-mnee';
 import { GoalCard } from '@/components/autovault/goal-card';
+import { HeroSectionCompact } from '@/components/autovault/hero-section';
+import { StatCard } from '@/components/autovault/stat-card';
+import { EmptyStateWidget } from '@/components/autovault/dashboard-widgets';
 import { motion } from 'motion/react';
 import { Plus, Target, Trophy, Clock } from 'lucide-react';
 import { useAccount } from 'wagmi';
@@ -40,7 +43,6 @@ export default function GoalsPage() {
         if (!newGoalName || !newGoalTarget) return;
         const target = parseEther(newGoalTarget);
         const deadline = newGoalDeadline ? Math.floor(new Date(newGoalDeadline).getTime() / 1000) : 0;
-
         await createGoal(newGoalName, target, deadline);
         setCreateOpen(false);
         setNewGoalName('');
@@ -62,110 +64,46 @@ export default function GoalsPage() {
         await withdrawGoal(goal.id);
     };
 
+    const formattedTotalSaved = parseFloat(formatEther(totalSaved)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold">Savings Goals</h1>
-                    <p className="text-muted-foreground">Lock funds until you reach your targets</p>
-                </div>
+            <HeroSectionCompact title="Savings Goals" subtitle="Lock funds until you reach your targets" accentColor="goals">
                 <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                     <DialogTrigger asChild>
-                        <Button><Plus className="h-4 w-4 mr-2" />Create Goal</Button>
+                        <Button className="touch-target"><Plus className="h-4 w-4 mr-2" />Create Goal</Button>
                     </DialogTrigger>
                     <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Create New Goal</DialogTitle>
-                            <DialogDescription>Set a savings target with optional deadline</DialogDescription>
-                        </DialogHeader>
+                        <DialogHeader><DialogTitle>Create New Goal</DialogTitle><DialogDescription>Set a savings target with optional deadline</DialogDescription></DialogHeader>
                         <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Goal Name</Label>
-                                <Input placeholder="e.g., Vacation Fund" value={newGoalName} onChange={(e) => setNewGoalName(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Target Amount (MNEE)</Label>
-                                <Input type="number" placeholder="1000" value={newGoalTarget} onChange={(e) => setNewGoalTarget(e.target.value)} />
-                            </div>
+                            <div className="space-y-2"><Label>Goal Name</Label><Input placeholder="e.g., Vacation Fund" value={newGoalName} onChange={(e) => setNewGoalName(e.target.value)} /></div>
+                            <div className="space-y-2"><Label>Target Amount (MNEE)</Label><Input type="number" placeholder="1000" value={newGoalTarget} onChange={(e) => setNewGoalTarget(e.target.value)} /></div>
                             <div className="space-y-2">
                                 <Label>Deadline (Optional)</Label>
                                 <Input type="date" value={newGoalDeadline} onChange={(e) => setNewGoalDeadline(e.target.value)} min={new Date().toISOString().split('T')[0]} />
                                 <p className="text-xs text-muted-foreground">Leave empty for no deadline - unlock only when target is reached</p>
                             </div>
                         </div>
-                        <DialogFooter>
-                            <Button onClick={handleCreateGoal} disabled={isPending || !newGoalName || !newGoalTarget}>
-                                {isPending ? 'Creating...' : 'Create Goal'}
-                            </Button>
-                        </DialogFooter>
+                        <DialogFooter><Button onClick={handleCreateGoal} disabled={isPending || !newGoalName || !newGoalTarget}>{isPending ? 'Creating...' : 'Create Goal'}</Button></DialogFooter>
                     </DialogContent>
                 </Dialog>
-            </div>
+            </HeroSectionCompact>
 
-            <div className="grid gap-4 md:grid-cols-3">
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Saved</CardTitle>
-                            <Target className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoading ? <Skeleton className="h-8 w-24" /> : (
-                                <div className="text-2xl font-bold">${parseFloat(formatEther(totalSaved)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Active Goals</CardTitle>
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoading ? <Skeleton className="h-8 w-16" /> : (
-                                <div className="text-2xl font-bold">{activeGoals.length}</div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Ready to Withdraw</CardTitle>
-                            <Trophy className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoading ? <Skeleton className="h-8 w-16" /> : (
-                                <div className="text-2xl font-bold text-green-500">{completedGoals.length}</div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </motion.div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <StatCard title="Total Saved" value={`$${formattedTotalSaved}`} icon={Target} accentColor="goals" isLoading={isLoading} />
+                <StatCard title="Active Goals" value={activeGoals.length} subtitle="In progress" icon={Clock} accentColor="goals" isLoading={isLoading} />
+                <StatCard title="Ready to Withdraw" value={completedGoals.length} subtitle="Goals completed" icon={Trophy} accentColor="goals" isLoading={isLoading} />
             </div>
 
             {isLoading ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {[1, 2, 3].map((i) => (<Skeleton key={i} className="h-64" />))}
-                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-80 rounded-xl" />)}</div>
             ) : activeGoals.length === 0 ? (
-                <Card className="py-12">
-                    <CardContent className="text-center">
-                        <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground mb-4">No goals created yet</p>
-                        <Button onClick={() => setCreateOpen(true)}>Create Your First Goal</Button>
-                    </CardContent>
-                </Card>
+                <EmptyStateWidget icon={<Target className="h-12 w-12" />} title="No goals created yet" description="Set your first savings goal and start building towards your dreams" actionLabel="Create Your First Goal" actionHref="#" variant="goals" />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {activeGoals.map((goal, index) => (
                         <motion.div key={goal.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
-                            <GoalCard
-                                goal={goal}
-                                onDeposit={() => { setSelectedGoal(goal); setDepositOpen(true); }}
-                                onWithdraw={() => handleWithdraw(goal)}
-                                isPending={isPending}
-                            />
+                            <GoalCard goal={goal} onDeposit={() => { setSelectedGoal(goal); setDepositOpen(true); }} onWithdraw={() => handleWithdraw(goal)} isPending={isPending} />
                         </motion.div>
                     ))}
                 </div>
@@ -173,21 +111,15 @@ export default function GoalsPage() {
 
             <Dialog open={depositOpen} onOpenChange={setDepositOpen}>
                 <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Deposit to {selectedGoal?.name}</DialogTitle>
-                    </DialogHeader>
+                    <DialogHeader><DialogTitle>Deposit to {selectedGoal?.name}</DialogTitle><DialogDescription>Add funds to your savings goal</DialogDescription></DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label>Amount (MNEE)</Label>
-                            <Input type="number" placeholder="0.00" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+                            <Input type="number" placeholder="0.00" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="text-lg" />
                             <p className="text-xs text-muted-foreground">Wallet balance: ${walletBalance}</p>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button onClick={handleDeposit} disabled={isPending || isApproving || !depositAmount}>
-                            {isPending || isApproving ? 'Processing...' : 'Deposit'}
-                        </Button>
-                    </DialogFooter>
+                    <DialogFooter><Button onClick={handleDeposit} disabled={isPending || isApproving || !depositAmount}>{isPending || isApproving ? 'Processing...' : 'Deposit'}</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

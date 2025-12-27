@@ -1,12 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useSmartVault } from '@/hooks/use-smart-vault';
 import { useGoals } from '@/hooks/use-goals';
 import { useMNEE } from '@/hooks/use-mnee';
 import { BucketChart } from '@/components/autovault/bucket-chart';
+import { HeroSection } from '@/components/autovault/hero-section';
+import { FeatureCard, FeatureCardGrid } from '@/components/autovault/feature-card';
+import { StatCard } from '@/components/autovault/stat-card';
+import { GoalCardCompact } from '@/components/autovault/goal-card';
 import { DCACountdownWidget, GoalProgressWidget, AIInsightsWidget } from '@/components/autovault/dashboard-widgets';
 import { TransactionHistoryCompact } from '@/components/autovault/transaction-history';
 import { motion } from 'motion/react';
@@ -17,157 +25,141 @@ import {
     Sparkles,
     ArrowRight,
     RefreshCw,
-    Droplets
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { getContractAddresses } from '@/lib/contracts/addresses';
+import { parseEther } from 'viem';
 
 export default function DashboardPage() {
-    const { address, chainId } = useAccount();
+    const { chainId } = useAccount();
     const addresses = chainId ? getContractAddresses(chainId) : getContractAddresses(11155111);
 
-    const { buckets, totalBalance, formattedTotalBalance, isLoading: isBucketsLoading, rebalance, isPending } = useSmartVault();
+    const { buckets, totalBalance, formattedTotalBalance, isLoading: isBucketsLoading, rebalance, deposit, isPending } = useSmartVault();
     const { goals, isLoading: isGoalsLoading } = useGoals();
-    const { formattedBalance: mneeBalance, isLoading: isMneeLoading, mint, isMinting } = useMNEE(addresses.smartVault);
+    const { formattedBalance: mneeBalance, isLoading: isMneeLoading, mint, isMinting, approve, isApproving, allowance } = useMNEE(addresses.smartVault);
+
+    const [depositOpen, setDepositOpen] = useState(false);
+    const [depositAmount, setDepositAmount] = useState('');
 
     const activeGoals = goals.filter(g => !g.isWithdrawn);
     const completedGoals = goals.filter(g => g.isCompleted && !g.isWithdrawn);
+    const activeBuckets = buckets.filter(b => b.isActive);
+
+    const handleDeposit = async () => {
+        if (!depositAmount) return;
+        const amount = parseEther(depositAmount);
+
+        if (!allowance || allowance < amount) {
+            await approve(addresses.smartVault, amount);
+            return;
+        }
+
+        await deposit(amount);
+        setDepositOpen(false);
+        setDepositAmount('');
+    };
+
+    const needsApproval = depositAmount ? (!allowance || allowance < parseEther(depositAmount || '0')) : false;
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold">Dashboard</h1>
-                    <p className="text-muted-foreground">Your programmable savings overview</p>
-                </div>
-                <Button
-                    onClick={() => rebalance()}
-                    disabled={isPending || totalBalance === 0n}
-                    variant="outline"
-                >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isPending ? 'animate-spin' : ''}`} />
-                    Rebalance Buckets
-                </Button>
-            </div>
+        <div className="space-y-8">
+            {/* Hero Section */}
+            <HeroSection
+                totalBalance={formattedTotalBalance}
+                walletBalance={mneeBalance}
+                isLoading={isBucketsLoading || isMneeLoading}
+                onDeposit={() => setDepositOpen(true)}
+                onMint={() => mint()}
+                isMinting={isMinting}
+            />
 
             {/* Stats Grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {/* Total Balance */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                >
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total in Vault</CardTitle>
-                            <Wallet className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isBucketsLoading ? (
-                                <Skeleton className="h-8 w-24" />
-                            ) : (
-                                <motion.div
-                                    className="text-2xl font-bold"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    key={formattedTotalBalance}
-                                >
-                                    ${formattedTotalBalance}
-                                </motion.div>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                                MNEE stablecoin
-                            </p>
-                        </CardContent>
-                    </Card>
-                </motion.div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                    title="Active Buckets"
+                    value={activeBuckets.length}
+                    subtitle="Auto-distributing deposits"
+                    icon={Wallet}
+                    accentColor="savings"
+                    isLoading={isBucketsLoading}
+                />
+                <StatCard
+                    title="Active Goals"
+                    value={activeGoals.length}
+                    subtitle={`${completedGoals.length} ready to withdraw`}
+                    icon={Target}
+                    accentColor="goals"
+                    isLoading={isGoalsLoading}
+                />
+                <StatCard
+                    title="DCA Strategies"
+                    value="0"
+                    subtitle="Set up automated investing"
+                    icon={TrendingUp}
+                    accentColor="dca"
+                />
+                <StatCard
+                    title="AI Insights"
+                    value="Ready"
+                    subtitle="Get personalized advice"
+                    icon={Sparkles}
+                    accentColor="ai"
+                />
+            </div>
 
-                {/* Wallet Balance */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                >
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Wallet Balance</CardTitle>
-                            <Sparkles className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isMneeLoading ? (
-                                <Skeleton className="h-8 w-24" />
-                            ) : (
-                                <div className="text-2xl font-bold">${mneeBalance}</div>
-                            )}
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs text-muted-foreground">
-                                    Available to deposit
-                                </p>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 px-2 text-xs text-primary hover:text-primary"
-                                    onClick={() => mint()}
-                                    disabled={isMinting}
-                                >
-                                    <Droplets className="h-3 w-3 mr-1" />
-                                    {isMinting ? 'Minting...' : 'Get Test MNEE'}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-
-                {/* Active Goals */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                >
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Active Goals</CardTitle>
-                            <Target className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isGoalsLoading ? (
-                                <Skeleton className="h-8 w-16" />
-                            ) : (
-                                <div className="text-2xl font-bold">{activeGoals.length}</div>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                                {completedGoals.length} ready to withdraw
-                            </p>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-
-                {/* Buckets */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                >
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Active Buckets</CardTitle>
-                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isBucketsLoading ? (
-                                <Skeleton className="h-8 w-16" />
-                            ) : (
-                                <div className="text-2xl font-bold">{buckets.filter(b => b.isActive).length}</div>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                                Auto-distributing deposits
-                            </p>
-                        </CardContent>
-                    </Card>
-                </motion.div>
+            {/* Feature Cards */}
+            <div>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold">Quick Access</h2>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => rebalance()}
+                        disabled={isPending || totalBalance === 0n}
+                    >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isPending ? 'animate-spin' : ''}`} />
+                        Rebalance
+                    </Button>
+                </div>
+                <FeatureCardGrid>
+                    <FeatureCard
+                        title="Smart Buckets"
+                        description="Auto-distribute your savings across categories"
+                        metric={`$${formattedTotalBalance}`}
+                        metricLabel="Total Balance"
+                        href="/buckets"
+                        variant="savings"
+                        icon={Wallet}
+                    />
+                    <FeatureCard
+                        title="Savings Goals"
+                        description="Lock funds until you reach your targets"
+                        metric={String(activeGoals.length)}
+                        metricLabel="Active Goals"
+                        href="/goals"
+                        variant="goals"
+                        icon={Target}
+                    />
+                    <FeatureCard
+                        title="DCA Strategies"
+                        description="Automate your investment schedule"
+                        metric="0"
+                        metricLabel="Active Strategies"
+                        href="/dca"
+                        variant="dca"
+                        icon={TrendingUp}
+                    />
+                    <FeatureCard
+                        title="AI Advisor"
+                        description="Get personalized financial guidance"
+                        metric="Ask Now"
+                        metricLabel="Powered by AI"
+                        href="/advisor"
+                        variant="ai"
+                        icon={Sparkles}
+                    />
+                </FeatureCardGrid>
             </div>
 
             {/* Main Content Grid */}
@@ -176,9 +168,9 @@ export default function DashboardPage() {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
+                    transition={{ delay: 0.2 }}
                 >
-                    <Card>
+                    <Card className="h-full">
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle>Bucket Distribution</CardTitle>
                             <Link href="/buckets">
@@ -189,7 +181,7 @@ export default function DashboardPage() {
                         </CardHeader>
                         <CardContent>
                             {isBucketsLoading ? (
-                                <div className="h-[300px] flex items-center justify-center">
+                                <div className="h-[280px] flex items-center justify-center">
                                     <Skeleton className="h-[200px] w-[200px] rounded-full" />
                                 </div>
                             ) : (
@@ -203,9 +195,9 @@ export default function DashboardPage() {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
+                    transition={{ delay: 0.3 }}
                 >
-                    <Card>
+                    <Card className="h-full">
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle>Savings Goals</CardTitle>
                             <Link href="/goals">
@@ -216,48 +208,25 @@ export default function DashboardPage() {
                         </CardHeader>
                         <CardContent>
                             {isGoalsLoading ? (
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     {[1, 2, 3].map((i) => (
-                                        <Skeleton key={i} className="h-16 w-full" />
+                                        <Skeleton key={i} className="h-16 w-full rounded-xl" />
                                     ))}
                                 </div>
                             ) : activeGoals.length === 0 ? (
                                 <div className="text-center py-8">
-                                    <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                    <div className="h-16 w-16 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mx-auto mb-4">
+                                        <Target className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                                    </div>
                                     <p className="text-muted-foreground mb-4">No active goals yet</p>
                                     <Link href="/goals">
                                         <Button>Create Your First Goal</Button>
                                     </Link>
                                 </div>
                             ) : (
-                                <div className="space-y-4">
-                                    {activeGoals.slice(0, 3).map((goal) => (
-                                        <div
-                                            key={goal.id}
-                                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                                    <Target className="h-5 w-5 text-primary" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium">{goal.name}</p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {goal.progressPercent}% complete
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="h-2 w-24 bg-muted rounded-full overflow-hidden">
-                                                    <motion.div
-                                                        className="h-full bg-primary"
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${goal.progressPercent}%` }}
-                                                        transition={{ duration: 0.5 }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
+                                <div className="space-y-3">
+                                    {activeGoals.slice(0, 4).map((goal) => (
+                                        <GoalCardCompact key={goal.id} goal={goal} />
                                     ))}
                                 </div>
                             )}
@@ -266,67 +235,27 @@ export default function DashboardPage() {
                 </motion.div>
             </div>
 
-            {/* Quick Actions */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
-            >
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Quick Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                            <Link href="/buckets">
-                                <Button variant="outline" className="w-full justify-start">
-                                    <Wallet className="mr-2 h-4 w-4" />
-                                    Deposit to Vault
-                                </Button>
-                            </Link>
-                            <Link href="/goals">
-                                <Button variant="outline" className="w-full justify-start">
-                                    <Target className="mr-2 h-4 w-4" />
-                                    Create Goal
-                                </Button>
-                            </Link>
-                            <Link href="/dca">
-                                <Button variant="outline" className="w-full justify-start">
-                                    <TrendingUp className="mr-2 h-4 w-4" />
-                                    Set Up DCA
-                                </Button>
-                            </Link>
-                            <Link href="/advisor">
-                                <Button variant="outline" className="w-full justify-start">
-                                    <Sparkles className="mr-2 h-4 w-4" />
-                                    Ask AI Advisor
-                                </Button>
-                            </Link>
-                        </div>
-                    </CardContent>
-                </Card>
-            </motion.div>
-
             {/* Bottom Widgets Row */}
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 }}
+                    transition={{ delay: 0.4 }}
                 >
                     <DCACountdownWidget />
                 </motion.div>
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.9 }}
+                    transition={{ delay: 0.5 }}
                 >
                     <GoalProgressWidget />
                 </motion.div>
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.0 }}
+                    transition={{ delay: 0.6 }}
+                    className="sm:col-span-2 lg:col-span-1"
                 >
                     <AIInsightsWidget />
                 </motion.div>
@@ -336,7 +265,7 @@ export default function DashboardPage() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.1 }}
+                transition={{ delay: 0.7 }}
             >
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
@@ -352,6 +281,44 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
             </motion.div>
+
+            {/* Deposit Dialog */}
+            <Dialog open={depositOpen} onOpenChange={setDepositOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Deposit to Vault</DialogTitle>
+                        <DialogDescription>
+                            Funds will be automatically distributed across your buckets
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Amount (MNEE)</Label>
+                            <Input
+                                type="number"
+                                placeholder="0.00"
+                                value={depositAmount}
+                                onChange={(e) => setDepositAmount(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Wallet balance: ${mneeBalance}
+                            </p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            onClick={handleDeposit}
+                            disabled={isPending || isApproving || !depositAmount}
+                        >
+                            {isPending || isApproving
+                                ? 'Processing...'
+                                : needsApproval
+                                    ? 'Approve MNEE'
+                                    : 'Deposit'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

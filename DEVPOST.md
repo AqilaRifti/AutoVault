@@ -98,8 +98,25 @@ AutoVault is a comprehensive savings platform built on MNEE stablecoin with four
 
 ---
 
+## Third-Party APIs & SDKs
+
+| API/SDK | Purpose | License |
+|---------|---------|---------|
+| [Cerebras API](https://cerebras.ai) | AI inference for financial advisor | Commercial API |
+| [Supabase](https://supabase.com) | Database & storage | Apache 2.0 |
+| [Uniswap V3](https://uniswap.org) | DEX integration for DCA swaps | GPL-2.0 / BSL |
+| [OpenZeppelin](https://openzeppelin.com/contracts) | Smart contract libraries | MIT |
+| [RainbowKit](https://rainbowkit.com) | Wallet connection UI | MIT |
+| [Wagmi](https://wagmi.sh) + [Viem](https://viem.sh) | Web3 React hooks | MIT |
+| [shadcn/ui](https://ui.shadcn.com) | UI components | MIT |
+| [Framer Motion](https://framer.com/motion) | Animations | MIT |
+
+All licenses are visible in `package.json` dependencies and the project `LICENSE` file.
+
+---
+
 **Links**
-- Demo: http://autovaultweb.netlify.app (run locally)
+- Demo: https://autovaultweb.netlify.app
 - Contracts: Sepolia Testnet
 - GitHub: https://github.com/AqilaRifti/AutoVault
 

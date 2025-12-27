@@ -9,10 +9,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { HeroSectionCompact } from '@/components/autovault/hero-section';
+import { StatCardCompact } from '@/components/autovault/stat-card';
+import { EmptyStateWidget } from '@/components/autovault/dashboard-widgets';
 import { useDCA, type DCAStrategy } from '@/hooks/use-dca';
 import { useMNEE } from '@/hooks/use-mnee';
 import { motion } from 'motion/react';
-import { Plus, TrendingUp, Pause, X, Clock, Zap } from 'lucide-react';
+import { Plus, TrendingUp, Pause, Play, X, Clock, Zap, ArrowRight, Calendar, DollarSign } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { getContractAddresses } from '@/lib/contracts/addresses';
 import { parseEther, formatEther, type Address } from 'viem';
@@ -49,7 +52,7 @@ export default function DCAPage() {
     const { chainId } = useAccount();
     const addresses = chainId ? getContractAddresses(chainId) : getContractAddresses(11155111);
 
-    const { strategies, isLoading, createStrategy, pauseStrategy, cancelStrategy, isPending } = useDCA();
+    const { strategies, isLoading, createStrategy, pauseStrategy, resumeStrategy, cancelStrategy, isPending } = useDCA();
     const { formattedBalance: walletBalance, approve, isApproving } = useMNEE(addresses.dcaExecutor);
 
     const [createOpen, setCreateOpen] = useState(false);
@@ -58,6 +61,8 @@ export default function DCAPage() {
     const [interval, setInterval] = useState<string>('');
 
     const activeStrategies = strategies.filter(s => s.isActive);
+    const totalInvested = strategies.reduce((sum, s) => sum + s.totalInvested, 0n);
+    const totalReceived = strategies.reduce((sum, s) => sum + s.totalReceived, 0n);
 
     const handleCreateStrategy = async () => {
         if (!selectedToken || !amount || !interval) return;
@@ -67,7 +72,7 @@ export default function DCAPage() {
         const amountWei = parseEther(amount);
         const intervalSeconds = parseInt(interval);
 
-        await approve(addresses.dcaExecutor, amountWei * 100n); // Approve for ~100 executions
+        await approve(addresses.dcaExecutor, amountWei * 100n);
         await createStrategy(token.address, amountWei, intervalSeconds);
         setCreateOpen(false);
         setSelectedToken('');
@@ -77,47 +82,73 @@ export default function DCAPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold">DCA Strategies</h1>
-                    <p className="text-muted-foreground">Automate your dollar-cost averaging investments</p>
-                </div>
+            {/* Hero Section */}
+            <HeroSectionCompact
+                title="DCA Strategies"
+                subtitle="Automate your dollar-cost averaging investments"
+                accentColor="dca"
+            >
                 <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                     <DialogTrigger asChild>
-                        <Button><Plus className="h-4 w-4 mr-2" />Create Strategy</Button>
+                        <Button className="bg-amber-600 hover:bg-amber-700 text-white shadow-lg">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Create Strategy
+                        </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="sm:max-w-md">
                         <DialogHeader>
-                            <DialogTitle>Create DCA Strategy</DialogTitle>
+                            <DialogTitle className="flex items-center gap-2">
+                                <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                                    <TrendingUp className="h-4 w-4 text-amber-600" />
+                                </div>
+                                Create DCA Strategy
+                            </DialogTitle>
                             <DialogDescription>Set up automatic recurring purchases</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <Label>Token to Buy</Label>
+                                <Label className="text-sm font-medium">Token to Buy</Label>
                                 <Select value={selectedToken} onValueChange={setSelectedToken}>
-                                    <SelectTrigger><SelectValue placeholder="Select token" /></SelectTrigger>
+                                    <SelectTrigger className="h-11">
+                                        <SelectValue placeholder="Select token" />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         {SUPPORTED_TOKENS.map((token) => (
                                             <SelectItem key={token.symbol} value={token.symbol}>
-                                                {token.symbol} - {token.name}
+                                                <span className="font-medium">{token.symbol}</span>
+                                                <span className="text-muted-foreground ml-2">- {token.name}</span>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Amount per Purchase (MNEE)</Label>
-                                <Input type="number" placeholder="100" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                                <Label className="text-sm font-medium">Amount per Purchase (MNEE)</Label>
+                                <div className="relative">
+                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        type="number"
+                                        placeholder="100"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        className="pl-9 h-11"
+                                    />
+                                </div>
                                 <p className="text-xs text-muted-foreground">Wallet balance: ${walletBalance}</p>
                             </div>
                             <div className="space-y-2">
-                                <Label>Frequency</Label>
+                                <Label className="text-sm font-medium">Frequency</Label>
                                 <Select value={interval} onValueChange={setInterval}>
-                                    <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                                    <SelectTrigger className="h-11">
+                                        <SelectValue placeholder="Select frequency" />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         {INTERVALS.map((int) => (
                                             <SelectItem key={int.seconds} value={int.seconds.toString()}>
-                                                {int.label}
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                    {int.label}
+                                                </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -125,112 +156,132 @@ export default function DCAPage() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button onClick={handleCreateStrategy} disabled={isPending || isApproving || !selectedToken || !amount || !interval}>
+                            <Button
+                                onClick={handleCreateStrategy}
+                                disabled={isPending || isApproving || !selectedToken || !amount || !interval}
+                                className="w-full bg-amber-600 hover:bg-amber-700"
+                            >
                                 {isPending || isApproving ? 'Processing...' : 'Create Strategy'}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-            </div>
+            </HeroSectionCompact>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            {/* Stats Grid */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Active Strategies</CardTitle>
-                            <Zap className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoading ? <Skeleton className="h-8 w-16" /> : (
-                                <div className="text-2xl font-bold text-green-500">{activeStrategies.length}</div>
-                            )}
-                        </CardContent>
-                    </Card>
+                    <StatCardCompact
+                        title="Active Strategies"
+                        value={isLoading ? '...' : activeStrategies.length.toString()}
+                        icon={<Zap className="h-4 w-4" />}
+                        accent="dca"
+                    />
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Invested</CardTitle>
-                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoading ? <Skeleton className="h-8 w-16" /> : (
-                                <div className="text-2xl font-bold">${parseFloat(formatEther(strategies.reduce((sum, s) => sum + s.totalInvested, 0n))).toFixed(2)}</div>
-                            )}
-                        </CardContent>
-                    </Card>
+                    <StatCardCompact
+                        title="Total Invested"
+                        value={isLoading ? '...' : `$${parseFloat(formatEther(totalInvested)).toFixed(2)}`}
+                        icon={<TrendingUp className="h-4 w-4" />}
+                        accent="dca"
+                    />
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Received</CardTitle>
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoading ? <Skeleton className="h-8 w-16" /> : (
-                                <div className="text-2xl font-bold">${parseFloat(formatEther(strategies.reduce((sum, s) => sum + s.totalReceived, 0n))).toFixed(2)}</div>
-                            )}
-                        </CardContent>
-                    </Card>
+                    <StatCardCompact
+                        title="Total Received"
+                        value={isLoading ? '...' : `$${parseFloat(formatEther(totalReceived)).toFixed(2)}`}
+                        icon={<ArrowRight className="h-4 w-4" />}
+                        accent="dca"
+                    />
                 </motion.div>
             </div>
 
+            {/* Strategies List */}
             {isLoading ? (
                 <div className="grid gap-4 sm:grid-cols-2">
-                    {[1, 2].map((i) => (<Skeleton key={i} className="h-48" />))}
+                    {[1, 2].map((i) => (<Skeleton key={i} className="h-56 rounded-xl" />))}
                 </div>
-            ) : strategies.filter(s => s.isActive).length === 0 ? (
-                <Card className="py-12">
-                    <CardContent className="text-center">
-                        <TrendingUp className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground mb-4">No DCA strategies yet</p>
-                        <Button onClick={() => setCreateOpen(true)}>Create Your First Strategy</Button>
-                    </CardContent>
-                </Card>
+            ) : activeStrategies.length === 0 ? (
+                <EmptyStateWidget
+                    icon={<TrendingUp className="h-12 w-12" />}
+                    title="No DCA strategies yet"
+                    description="Set up automatic recurring purchases to dollar-cost average into your favorite tokens"
+                    actionLabel="Create Your First Strategy"
+                    onAction={() => setCreateOpen(true)}
+                    accentColor="amber"
+                />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                    {strategies.filter(s => s.isActive).map((strategy, index) => {
+                    {activeStrategies.map((strategy, index) => {
                         const token = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === strategy.tokenOut.toLowerCase());
                         return (
-                            <motion.div key={strategy.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
-                                <Card>
-                                    <CardHeader>
+                            <motion.div
+                                key={strategy.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: index * 0.1 }}
+                            >
+                                <Card className="overflow-hidden card-hover-shadow transition-all duration-300 group">
+                                    {/* Colored header bar */}
+                                    <div className="h-1.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+                                    <CardHeader className="pb-3">
                                         <div className="flex items-center justify-between">
-                                            <CardTitle className="flex items-center gap-2">
-                                                {token?.symbol || 'Unknown'} DCA
-                                                <Badge variant="default">Active</Badge>
+                                            <CardTitle className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                                                    <TrendingUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                                                </div>
+                                                <div>
+                                                    <span className="text-lg">{token?.symbol || 'Unknown'} DCA</span>
+                                                    <p className="text-sm font-normal text-muted-foreground">{token?.name || strategy.tokenOut}</p>
+                                                </div>
                                             </CardTitle>
+                                            <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">
+                                                Active
+                                            </Badge>
                                         </div>
-                                        <CardDescription>{token?.name || strategy.tokenOut}</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
-                                            <div>
-                                                <p className="text-muted-foreground">Amount</p>
-                                                <p className="font-medium">${parseFloat(formatEther(strategy.amountPerInterval)).toFixed(2)}</p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-3 rounded-lg bg-muted/50">
+                                                <p className="text-xs text-muted-foreground mb-1">Amount</p>
+                                                <p className="font-semibold text-lg">${parseFloat(formatEther(strategy.amountPerInterval)).toFixed(2)}</p>
                                             </div>
-                                            <div>
-                                                <p className="text-muted-foreground">Frequency</p>
-                                                <p className="font-medium">{getIntervalLabel(strategy.intervalSeconds)}</p>
+                                            <div className="p-3 rounded-lg bg-muted/50">
+                                                <p className="text-xs text-muted-foreground mb-1">Frequency</p>
+                                                <p className="font-semibold text-lg">{getIntervalLabel(strategy.intervalSeconds)}</p>
                                             </div>
-                                            <div>
-                                                <p className="text-muted-foreground">Total Invested</p>
-                                                <p className="font-medium">${parseFloat(formatEther(strategy.totalInvested)).toFixed(2)}</p>
+                                            <div className="p-3 rounded-lg bg-muted/50">
+                                                <p className="text-xs text-muted-foreground mb-1">Total Invested</p>
+                                                <p className="font-semibold">${parseFloat(formatEther(strategy.totalInvested)).toFixed(2)}</p>
                                             </div>
-                                            <div>
-                                                <p className="text-muted-foreground">Next Run</p>
-                                                <p className="font-medium flex items-center gap-1">
-                                                    <Clock className="h-3 w-3" />
+                                            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                                                <p className="text-xs text-muted-foreground mb-1">Next Run</p>
+                                                <p className="font-semibold flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                                                    <Clock className="h-3.5 w-3.5" />
                                                     {formatTimeUntil(strategy.nextExecution)}
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2">
-                                            <Button size="sm" variant="outline" onClick={() => pauseStrategy(strategy.id)} disabled={isPending}>
-                                                <Pause className="h-4 w-4 mr-1" />Pause
+                                        <div className="flex gap-2 pt-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => pauseStrategy(strategy.id)}
+                                                disabled={isPending}
+                                                className="flex-1"
+                                            >
+                                                <Pause className="h-4 w-4 mr-1" />
+                                                Pause
                                             </Button>
-                                            <Button size="sm" variant="destructive" onClick={() => cancelStrategy(strategy.id)} disabled={isPending}>
-                                                <X className="h-4 w-4 mr-1" />Cancel
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                onClick={() => cancelStrategy(strategy.id)}
+                                                disabled={isPending}
+                                                className="flex-1"
+                                            >
+                                                <X className="h-4 w-4 mr-1" />
+                                                Cancel
                                             </Button>
                                         </div>
                                     </CardContent>
