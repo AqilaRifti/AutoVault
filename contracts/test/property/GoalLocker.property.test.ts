@@ -15,6 +15,8 @@ describe("GoalLocker Property Tests", function () {
     let owner: SignerWithAddress;
     let user: SignerWithAddress;
 
+    const MNEE_TOKEN_ID = 0n; // ERC-1155 token ID for MNEE
+
     beforeEach(async function () {
         [owner, user] = await ethers.getSigners();
 
@@ -22,10 +24,10 @@ describe("GoalLocker Property Tests", function () {
         mnee = await MockMNEE.deploy();
 
         const GoalLocker = await ethers.getContractFactory("GoalLocker");
-        goalLocker = await GoalLocker.deploy(await mnee.getAddress());
+        goalLocker = await GoalLocker.deploy(await mnee.getAddress(), MNEE_TOKEN_ID);
 
         await mnee.mint(user.address, ethers.parseEther("1000000000"));
-        await mnee.connect(user).approve(await goalLocker.getAddress(), ethers.MaxUint256);
+        await mnee.connect(user).setApprovalForAll(await goalLocker.getAddress(), true);
     });
 
     /**
@@ -48,10 +50,10 @@ describe("GoalLocker Property Tests", function () {
                         const freshMnee = await MockMNEE.deploy();
 
                         const GoalLocker = await ethers.getContractFactory("GoalLocker");
-                        const freshLocker = await GoalLocker.deploy(await freshMnee.getAddress());
+                        const freshLocker = await GoalLocker.deploy(await freshMnee.getAddress(), 0n);
 
                         await freshMnee.mint(user.address, targetAmount);
-                        await freshMnee.connect(user).approve(await freshLocker.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshLocker.getAddress(), true);
 
                         const deadline = (await time.latest()) + deadlineOffset;
                         await freshLocker.connect(user).createGoal("Test", targetAmount, deadline);
@@ -81,10 +83,10 @@ describe("GoalLocker Property Tests", function () {
                         const freshMnee = await MockMNEE.deploy();
 
                         const GoalLocker = await ethers.getContractFactory("GoalLocker");
-                        const freshLocker = await GoalLocker.deploy(await freshMnee.getAddress());
+                        const freshLocker = await GoalLocker.deploy(await freshMnee.getAddress(), 0n);
 
                         await freshMnee.mint(user.address, targetAmount * 2n);
-                        await freshMnee.connect(user).approve(await freshLocker.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshLocker.getAddress(), true);
 
                         const deadline = (await time.latest()) + deadlineOffset;
                         await freshLocker.connect(user).createGoal("Test", targetAmount, deadline);
@@ -123,11 +125,11 @@ describe("GoalLocker Property Tests", function () {
                         const freshMnee = await MockMNEE.deploy();
 
                         const GoalLocker = await ethers.getContractFactory("GoalLocker");
-                        const freshLocker = await GoalLocker.deploy(await freshMnee.getAddress());
+                        const freshLocker = await GoalLocker.deploy(await freshMnee.getAddress(), 0n);
 
                         const totalDeposits = deposits.reduce((a, b) => a + b, 0n);
                         await freshMnee.mint(user.address, totalDeposits);
-                        await freshMnee.connect(user).approve(await freshLocker.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshLocker.getAddress(), true);
 
                         await freshLocker.connect(user).createGoal("Test", targetAmount, 0);
 
@@ -174,11 +176,11 @@ describe("GoalLocker Property Tests", function () {
                         const freshMnee = await MockMNEE.deploy();
 
                         const GoalLocker = await ethers.getContractFactory("GoalLocker");
-                        const freshLocker = await GoalLocker.deploy(await freshMnee.getAddress());
+                        const freshLocker = await GoalLocker.deploy(await freshMnee.getAddress(), 0n);
 
                         const depositAmount = (targetAmount * BigInt(progressPercent)) / 100n;
                         await freshMnee.mint(user.address, depositAmount > 0n ? depositAmount : 1n);
-                        await freshMnee.connect(user).approve(await freshLocker.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshLocker.getAddress(), true);
 
                         await freshLocker.connect(user).createGoal("Test", targetAmount, 0);
 

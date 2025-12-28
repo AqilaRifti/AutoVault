@@ -12,25 +12,26 @@ describe("SmartVault", function () {
 
     const BASIS_POINTS = 10000n;
     const INITIAL_BALANCE = ethers.parseEther("10000");
+    const MNEE_TOKEN_ID = 0n; // ERC-1155 token ID for MNEE
 
     beforeEach(async function () {
         [owner, user1, user2] = await ethers.getSigners();
 
-        // Deploy MockMNEE
+        // Deploy MockMNEE (ERC-1155)
         const MockMNEE = await ethers.getContractFactory("MockMNEE");
         mnee = await MockMNEE.deploy();
 
-        // Deploy SmartVault
+        // Deploy SmartVault with token ID
         const SmartVault = await ethers.getContractFactory("SmartVault");
-        smartVault = await SmartVault.deploy(await mnee.getAddress());
+        smartVault = await SmartVault.deploy(await mnee.getAddress(), MNEE_TOKEN_ID);
 
         // Mint MNEE to users
         await mnee.mint(user1.address, INITIAL_BALANCE);
         await mnee.mint(user2.address, INITIAL_BALANCE);
 
-        // Approve SmartVault to spend MNEE
-        await mnee.connect(user1).approve(await smartVault.getAddress(), ethers.MaxUint256);
-        await mnee.connect(user2).approve(await smartVault.getAddress(), ethers.MaxUint256);
+        // Approve SmartVault to spend MNEE (ERC-1155 uses setApprovalForAll)
+        await mnee.connect(user1).setApprovalForAll(await smartVault.getAddress(), true);
+        await mnee.connect(user2).setApprovalForAll(await smartVault.getAddress(), true);
     });
 
     describe("Default Buckets", function () {
@@ -109,9 +110,9 @@ describe("SmartVault", function () {
             const withdrawAmount = ethers.parseEther("100");
             const bucketId = 0; // Savings
 
-            const balanceBefore = await mnee.balanceOf(user1.address);
+            const balanceBefore = await mnee.balanceOf(user1.address, MNEE_TOKEN_ID);
             await smartVault.connect(user1).withdrawFromBucket(bucketId, withdrawAmount);
-            const balanceAfter = await mnee.balanceOf(user1.address);
+            const balanceAfter = await mnee.balanceOf(user1.address, MNEE_TOKEN_ID);
 
             expect(balanceAfter - balanceBefore).to.equal(withdrawAmount);
         });

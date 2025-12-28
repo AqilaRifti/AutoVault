@@ -17,6 +17,7 @@ describe("SmartVault Property Tests", function () {
     let user: SignerWithAddress;
 
     const BASIS_POINTS = 10000n;
+    const MNEE_TOKEN_ID = 0n; // ERC-1155 token ID for MNEE
 
     beforeEach(async function () {
         [owner, user] = await ethers.getSigners();
@@ -25,11 +26,11 @@ describe("SmartVault Property Tests", function () {
         mnee = await MockMNEE.deploy();
 
         const SmartVault = await ethers.getContractFactory("SmartVault");
-        smartVault = await SmartVault.deploy(await mnee.getAddress());
+        smartVault = await SmartVault.deploy(await mnee.getAddress(), MNEE_TOKEN_ID);
 
         // Mint large amount for testing
         await mnee.mint(user.address, ethers.parseEther("1000000000"));
-        await mnee.connect(user).approve(await smartVault.getAddress(), ethers.MaxUint256);
+        await mnee.connect(user).setApprovalForAll(await smartVault.getAddress(), true);
     });
 
     /**
@@ -53,10 +54,10 @@ describe("SmartVault Property Tests", function () {
                         const freshMnee = await MockMNEE.deploy();
 
                         const SmartVault = await ethers.getContractFactory("SmartVault");
-                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress());
+                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress(), 0n);
 
                         await freshMnee.mint(user.address, depositAmount * 2n);
-                        await freshMnee.connect(user).approve(await freshVault.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshVault.getAddress(), true);
 
                         // Deposit
                         await freshVault.connect(user).deposit(depositAmount);
@@ -104,10 +105,10 @@ describe("SmartVault Property Tests", function () {
                         const freshMnee = await MockMNEE.deploy();
 
                         const SmartVault = await ethers.getContractFactory("SmartVault");
-                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress());
+                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress(), 0n);
 
                         await freshMnee.mint(user.address, depositAmount);
-                        await freshMnee.connect(user).approve(await freshVault.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshVault.getAddress(), true);
 
                         await freshVault.connect(user).deposit(depositAmount);
 
@@ -142,10 +143,10 @@ describe("SmartVault Property Tests", function () {
                         const freshMnee = await MockMNEE.deploy();
 
                         const SmartVault = await ethers.getContractFactory("SmartVault");
-                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress());
+                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress(), 0n);
 
                         await freshMnee.mint(user.address, depositAmount);
-                        await freshMnee.connect(user).approve(await freshVault.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshVault.getAddress(), true);
 
                         await freshVault.connect(user).deposit(depositAmount);
 
@@ -199,11 +200,11 @@ describe("SmartVault Property Tests", function () {
                         const freshMnee = await MockMNEE.deploy();
 
                         const SmartVault = await ethers.getContractFactory("SmartVault");
-                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress());
+                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress(), 0n);
 
                         const depositAmount = ethers.parseEther("10000");
                         await freshMnee.mint(user.address, depositAmount);
-                        await freshMnee.connect(user).approve(await freshVault.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshVault.getAddress(), true);
 
                         await freshVault.connect(user).deposit(depositAmount);
 
@@ -259,11 +260,11 @@ describe("SmartVault Property Tests", function () {
                         const freshMnee = await MockMNEE.deploy();
 
                         const SmartVault = await ethers.getContractFactory("SmartVault");
-                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress());
+                        const freshVault = await SmartVault.deploy(await freshMnee.getAddress(), 0n);
 
                         const depositAmount = ethers.parseEther("10000");
                         await freshMnee.mint(user.address, depositAmount);
-                        await freshMnee.connect(user).approve(await freshVault.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshVault.getAddress(), true);
 
                         await freshVault.connect(user).deposit(depositAmount);
 

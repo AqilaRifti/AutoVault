@@ -81,10 +81,12 @@ MNEE_ADDRESS=0xB69a340155d16D963A8173Cb3A6cBF4093aB26E9
 
 | Contract | Address |
 |----------|---------|
-| MockMNEE | `0xB69a340155d16D963A8173Cb3A6cBF4093aB26E9` |
-| SmartVault | `0x47846df5e07ffd869C50871de328AF21D3CEF4D3` |
-| GoalLocker | `0xCDFdCdBbf3a11e9FA661F8DF3D1B2c6825F12252` |
-| DCAExecutor | `0x6602c410F6aB155BA7fBaB056CB394F21D19927C` |
+| MNEE (ERC-1155) | `0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF` |
+| SmartVault | *Redeploy needed* |
+| GoalLocker | *Redeploy needed* |
+| DCAExecutor | *Redeploy needed* |
+
+> **Note:** Contracts need to be redeployed to use the official MNEE ERC-1155 token.
 
 ## Tech Stack
 
@@ -98,7 +100,7 @@ MNEE_ADDRESS=0xB69a340155d16D963A8173Cb3A6cBF4093aB26E9
 **Smart Contracts**
 - Solidity 0.8.20
 - Hardhat
-- OpenZeppelin
+- OpenZeppelin (ERC-1155 support)
 
 **AI**
 - Cerebras API

@@ -14,6 +14,7 @@ describe("DCAExecutor", function () {
     const INITIAL_BALANCE = ethers.parseEther("10000");
     const ONE_HOUR = 3600;
     const ONE_DAY = 86400;
+    const MNEE_TOKEN_ID = 0n; // ERC-1155 token ID for MNEE
 
     beforeEach(async function () {
         [owner, user1, keeper] = await ethers.getSigners();
@@ -24,11 +25,12 @@ describe("DCAExecutor", function () {
         const DCAExecutor = await ethers.getContractFactory("DCAExecutor");
         dcaExecutor = await DCAExecutor.deploy(
             await mnee.getAddress(),
+            MNEE_TOKEN_ID,
             ethers.ZeroAddress // No swap router for testing
         );
 
         await mnee.mint(user1.address, INITIAL_BALANCE);
-        await mnee.connect(user1).approve(await dcaExecutor.getAddress(), ethers.MaxUint256);
+        await mnee.connect(user1).setApprovalForAll(await dcaExecutor.getAddress(), true);
 
         // Authorize keeper
         await dcaExecutor.setKeeper(keeper.address, true);
@@ -55,9 +57,9 @@ describe("DCAExecutor", function () {
             const amount = ethers.parseEther("1000");
             await dcaExecutor.connect(user1).allocateFunds(amount);
 
-            const balanceBefore = await mnee.balanceOf(user1.address);
+            const balanceBefore = await mnee.balanceOf(user1.address, MNEE_TOKEN_ID);
             await dcaExecutor.connect(user1).withdrawFunds(amount);
-            const balanceAfter = await mnee.balanceOf(user1.address);
+            const balanceAfter = await mnee.balanceOf(user1.address, MNEE_TOKEN_ID);
 
             expect(balanceAfter - balanceBefore).to.equal(amount);
         });

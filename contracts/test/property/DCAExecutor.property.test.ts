@@ -17,6 +17,7 @@ describe("DCAExecutor Property Tests", function () {
     let keeper: SignerWithAddress;
 
     const ONE_HOUR = 3600;
+    const MNEE_TOKEN_ID = 0n; // ERC-1155 token ID for MNEE
 
     beforeEach(async function () {
         [owner, user, keeper] = await ethers.getSigners();
@@ -27,11 +28,12 @@ describe("DCAExecutor Property Tests", function () {
         const DCAExecutor = await ethers.getContractFactory("DCAExecutor");
         dcaExecutor = await DCAExecutor.deploy(
             await mnee.getAddress(),
+            MNEE_TOKEN_ID,
             ethers.ZeroAddress
         );
 
         await mnee.mint(user.address, ethers.parseEther("1000000000"));
-        await mnee.connect(user).approve(await dcaExecutor.getAddress(), ethers.MaxUint256);
+        await mnee.connect(user).setApprovalForAll(await dcaExecutor.getAddress(), true);
 
         await dcaExecutor.setKeeper(keeper.address, true);
     });
@@ -56,12 +58,12 @@ describe("DCAExecutor Property Tests", function () {
 
                         const DCAExecutor = await ethers.getContractFactory("DCAExecutor");
                         const freshExecutor = await DCAExecutor.deploy(
-                            await freshMnee.getAddress(),
+                            await freshMnee.getAddress(), 0n,
                             ethers.ZeroAddress
                         );
 
                         await freshMnee.mint(user.address, amountPerInterval * 10n);
-                        await freshMnee.connect(user).approve(await freshExecutor.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshExecutor.getAddress(), true);
 
                         await freshExecutor.setKeeper(keeper.address, true);
 
@@ -101,12 +103,12 @@ describe("DCAExecutor Property Tests", function () {
 
                         const DCAExecutor = await ethers.getContractFactory("DCAExecutor");
                         const freshExecutor = await DCAExecutor.deploy(
-                            await freshMnee.getAddress(),
+                            await freshMnee.getAddress(), 0n,
                             ethers.ZeroAddress
                         );
 
                         await freshMnee.mint(user.address, amountPerInterval * 10n);
-                        await freshMnee.connect(user).approve(await freshExecutor.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshExecutor.getAddress(), true);
 
                         await freshExecutor.setKeeper(keeper.address, true);
 
@@ -156,12 +158,12 @@ describe("DCAExecutor Property Tests", function () {
 
                         const DCAExecutor = await ethers.getContractFactory("DCAExecutor");
                         const freshExecutor = await DCAExecutor.deploy(
-                            await freshMnee.getAddress(),
+                            await freshMnee.getAddress(), 0n,
                             ethers.ZeroAddress
                         );
 
                         await freshMnee.mint(user.address, allocatedAmount);
-                        await freshMnee.connect(user).approve(await freshExecutor.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshExecutor.getAddress(), true);
 
                         const tokenOut = ethers.Wallet.createRandom().address;
                         await freshExecutor.connect(user).createDCAStrategy(
@@ -185,9 +187,9 @@ describe("DCAExecutor Property Tests", function () {
                         expect(allocatedAfter).to.equal(allocatedAmount);
 
                         // User can withdraw all funds
-                        const balanceBefore = await freshMnee.balanceOf(user.address);
+                        const balanceBefore = await freshMnee.balanceOf(user.address, 0n);
                         await freshExecutor.connect(user).withdrawFunds(allocatedAmount);
-                        const balanceAfter = await freshMnee.balanceOf(user.address);
+                        const balanceAfter = await freshMnee.balanceOf(user.address, 0n);
 
                         expect(balanceAfter - balanceBefore).to.equal(allocatedAmount);
                     }
@@ -206,12 +208,12 @@ describe("DCAExecutor Property Tests", function () {
 
                         const DCAExecutor = await ethers.getContractFactory("DCAExecutor");
                         const freshExecutor = await DCAExecutor.deploy(
-                            await freshMnee.getAddress(),
+                            await freshMnee.getAddress(), 0n,
                             ethers.ZeroAddress
                         );
 
                         await freshMnee.mint(user.address, allocatedAmount);
-                        await freshMnee.connect(user).approve(await freshExecutor.getAddress(), ethers.MaxUint256);
+                        await freshMnee.connect(user).setApprovalForAll(await freshExecutor.getAddress(), true);
 
                         const tokenOut = ethers.Wallet.createRandom().address;
                         await freshExecutor.connect(user).createDCAStrategy(

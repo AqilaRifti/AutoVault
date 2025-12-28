@@ -53,7 +53,7 @@ export default function DCAPage() {
     const addresses = chainId ? getContractAddresses(chainId) : getContractAddresses(11155111);
 
     const { strategies, isLoading, createStrategy, pauseStrategy, resumeStrategy, cancelStrategy, isPending } = useDCA();
-    const { formattedBalance: walletBalance, approve, isApproving } = useMNEE(addresses.dcaExecutor);
+    const { formattedBalance: walletBalance, approve, isApproving, isApproved } = useMNEE(addresses.dcaExecutor);
 
     const [createOpen, setCreateOpen] = useState(false);
     const [selectedToken, setSelectedToken] = useState<string>('');
@@ -72,7 +72,10 @@ export default function DCAPage() {
         const amountWei = parseEther(amount);
         const intervalSeconds = parseInt(interval);
 
-        await approve(addresses.dcaExecutor, amountWei * 100n);
+        // ERC-1155 uses setApprovalForAll - approve once for all amounts
+        if (!isApproved) {
+            await approve(addresses.dcaExecutor);
+        }
         await createStrategy(token.address, amountWei, intervalSeconds);
         setCreateOpen(false);
         setSelectedToken('');

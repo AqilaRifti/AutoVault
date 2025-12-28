@@ -11,6 +11,7 @@ describe("GoalLocker", function () {
     let user1: SignerWithAddress;
 
     const INITIAL_BALANCE = ethers.parseEther("10000");
+    const MNEE_TOKEN_ID = 0n; // ERC-1155 token ID for MNEE
 
     beforeEach(async function () {
         [owner, user1] = await ethers.getSigners();
@@ -19,10 +20,10 @@ describe("GoalLocker", function () {
         mnee = await MockMNEE.deploy();
 
         const GoalLocker = await ethers.getContractFactory("GoalLocker");
-        goalLocker = await GoalLocker.deploy(await mnee.getAddress());
+        goalLocker = await GoalLocker.deploy(await mnee.getAddress(), MNEE_TOKEN_ID);
 
         await mnee.mint(user1.address, INITIAL_BALANCE);
-        await mnee.connect(user1).approve(await goalLocker.getAddress(), ethers.MaxUint256);
+        await mnee.connect(user1).setApprovalForAll(await goalLocker.getAddress(), true);
     });
 
     describe("Goal Creation", function () {
@@ -145,9 +146,9 @@ describe("GoalLocker", function () {
             await goalLocker.connect(user1).createGoal("Complete Goal", targetAmount, 0);
             await goalLocker.connect(user1).depositToGoal(0, targetAmount);
 
-            const balanceBefore = await mnee.balanceOf(user1.address);
+            const balanceBefore = await mnee.balanceOf(user1.address, MNEE_TOKEN_ID);
             await goalLocker.connect(user1).withdrawGoal(0);
-            const balanceAfter = await mnee.balanceOf(user1.address);
+            const balanceAfter = await mnee.balanceOf(user1.address, MNEE_TOKEN_ID);
 
             expect(balanceAfter - balanceBefore).to.equal(targetAmount);
         });

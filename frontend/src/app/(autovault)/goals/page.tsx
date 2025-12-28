@@ -24,7 +24,7 @@ export default function GoalsPage() {
     const addresses = chainId ? getContractAddresses(chainId) : getContractAddresses(11155111);
 
     const { goals, isLoading, createGoal, depositToGoal, withdrawGoal, isPending } = useGoals();
-    const { formattedBalance: walletBalance, approve, isApproving } = useMNEE(addresses.goalLocker);
+    const { formattedBalance: walletBalance, approve, isApproving, isApproved } = useMNEE(addresses.goalLocker);
 
     const [createOpen, setCreateOpen] = useState(false);
     const [depositOpen, setDepositOpen] = useState(false);
@@ -53,7 +53,10 @@ export default function GoalsPage() {
     const handleDeposit = async () => {
         if (!depositAmount || !selectedGoal) return;
         const amount = parseEther(depositAmount);
-        await approve(addresses.goalLocker, amount);
+        // ERC-1155 uses setApprovalForAll - approve once for all amounts
+        if (!isApproved) {
+            await approve(addresses.goalLocker);
+        }
         await depositToGoal(selectedGoal.id, amount);
         setDepositOpen(false);
         setDepositAmount('');

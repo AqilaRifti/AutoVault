@@ -37,7 +37,7 @@ export default function DashboardPage() {
 
     const { buckets, totalBalance, formattedTotalBalance, isLoading: isBucketsLoading, rebalance, deposit, isPending } = useSmartVault();
     const { goals, isLoading: isGoalsLoading } = useGoals();
-    const { formattedBalance: mneeBalance, isLoading: isMneeLoading, mint, isMinting, approve, isApproving, allowance } = useMNEE(addresses.smartVault);
+    const { formattedBalance: mneeBalance, isLoading: isMneeLoading, mint, isMinting, approve, isApproving, isApproved } = useMNEE(addresses.smartVault);
 
     const [depositOpen, setDepositOpen] = useState(false);
     const [depositAmount, setDepositAmount] = useState('');
@@ -50,8 +50,9 @@ export default function DashboardPage() {
         if (!depositAmount) return;
         const amount = parseEther(depositAmount);
 
-        if (!allowance || allowance < amount) {
-            await approve(addresses.smartVault, amount);
+        // ERC-1155 uses setApprovalForAll - approve once for all amounts
+        if (!isApproved) {
+            await approve(addresses.smartVault);
             return;
         }
 
@@ -60,7 +61,7 @@ export default function DashboardPage() {
         setDepositAmount('');
     };
 
-    const needsApproval = depositAmount ? (!allowance || allowance < parseEther(depositAmount || '0')) : false;
+    const needsApproval = !isApproved;
 
     return (
         <div className="space-y-8">

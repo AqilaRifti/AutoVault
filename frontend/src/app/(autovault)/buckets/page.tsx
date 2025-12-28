@@ -26,7 +26,7 @@ export default function BucketsPage() {
   const addresses = chainId ? getContractAddresses(chainId) : getContractAddresses(11155111);
 
   const { buckets, totalBalance, formattedTotalBalance, isLoading, deposit, withdraw, rebalance, createBucket, isPending } = useSmartVault();
-  const { formattedBalance: walletBalance, approve, isApproving, allowance } = useMNEE(addresses.smartVault);
+  const { formattedBalance: walletBalance, approve, isApproving, isApproved } = useMNEE(addresses.smartVault);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
@@ -56,8 +56,9 @@ export default function BucketsPage() {
   const handleDeposit = async () => {
     if (!depositAmount) return;
     const amount = parseEther(depositAmount);
-    if (!allowance || allowance < amount) {
-      await approve(addresses.smartVault, amount);
+    // ERC-1155 uses setApprovalForAll - approve once for all amounts
+    if (!isApproved) {
+      await approve(addresses.smartVault);
       return;
     }
     await deposit(amount);
@@ -65,7 +66,7 @@ export default function BucketsPage() {
     setDepositAmount('');
   };
 
-  const needsApproval = depositAmount ? (!allowance || allowance < parseEther(depositAmount || '0')) : false;
+  const needsApproval = !isApproved;
 
   const handleWithdraw = async () => {
     if (!withdrawAmount || !selectedBucket) return;
