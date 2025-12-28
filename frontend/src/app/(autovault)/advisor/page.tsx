@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { HeroSectionCompact } from '@/components/autovault/hero-section';
 import { useSmartVault } from '@/hooks/use-smart-vault';
 import { useGoals } from '@/hooks/use-goals';
@@ -92,7 +91,7 @@ export default function AdvisorPage() {
     const activeStrategies = strategies.filter(s => s.isActive).length;
 
     return (
-        <div className="space-y-6 h-[calc(100vh-12rem)]">
+        <div className="flex flex-col h-full max-h-[calc(100vh-8rem)]">
             {/* Hero Section */}
             <HeroSectionCompact
                 title="AI Financial Advisor"
@@ -100,10 +99,10 @@ export default function AdvisorPage() {
                 accentColor="ai"
             />
 
-            <div className="grid gap-6 lg:grid-cols-4 h-[calc(100%-8rem)]">
+            <div className="grid gap-6 lg:grid-cols-4 flex-1 min-h-0 mt-6">
                 {/* Chat Area */}
-                <Card className="lg:col-span-3 flex flex-col overflow-hidden">
-                    <CardHeader className="border-b bg-gradient-ai px-6 py-4">
+                <Card className="lg:col-span-3 flex flex-col min-h-0 overflow-hidden">
+                    <CardHeader className="border-b bg-gradient-ai px-6 py-4 flex-shrink-0">
                         <CardTitle className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg">
                                 <Bot className="h-5 w-5 text-white" />
@@ -114,8 +113,8 @@ export default function AdvisorPage() {
                             </div>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="flex-1 flex flex-col p-0 min-h-0">
-                        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+                    <CardContent className="flex-1 flex flex-col p-0 min-h-0 overflow-hidden">
+                        <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
                             {messages.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-center py-12">
                                     <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-6 shadow-xl">
@@ -143,8 +142,8 @@ export default function AdvisorPage() {
                             ) : (
                                 <ChatMessages messages={messages} isLoading={isLoading} />
                             )}
-                        </ScrollArea>
-                        <form onSubmit={handleSubmit} className="p-4 border-t bg-muted/30 flex gap-2">
+                        </div>
+                        <form onSubmit={handleSubmit} className="p-4 border-t bg-muted/30 flex gap-2 flex-shrink-0">
                             <Input
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
@@ -160,7 +159,7 @@ export default function AdvisorPage() {
                 </Card>
 
                 {/* Sidebar */}
-                <div className="space-y-4">
+                <div className="space-y-4 overflow-y-auto">
                     <ContextCard
                         totalBalance={formattedTotalBalance}
                         activeBuckets={activeBuckets}
@@ -194,8 +193,8 @@ function ChatMessages({ messages, isLoading }: { messages: ChatMessage[]; isLoad
                         )}
                         <div
                             className={`rounded-2xl px-4 py-3 max-w-[80%] ${message.role === 'user'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-muted'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-muted'
                                 }`}
                         >
                             <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
