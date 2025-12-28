@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/IGoalLocker.sol";
 
@@ -10,12 +10,14 @@ import "./interfaces/IGoalLocker.sol";
  * @title GoalLocker
  * @notice Contract for managing locked savings goals with milestones
  * @dev Funds are locked until target amount reached OR deadline passed
+ *      Updated to support ERC-1155 MNEE token
  */
-contract GoalLocker is IGoalLocker, ReentrancyGuard {
-    using SafeERC20 for IERC20;
+contract GoalLocker is IGoalLocker, ReentrancyGuard, ERC1155Holder {
+    /// @notice The MNEE token contract (ERC-1155)
+    IERC1155 public immutable mneeToken;
 
-    /// @notice The MNEE token used for deposits
-    IERC20 public immutable mneeToken;
+    /// @notice The MNEE token ID within the ERC-1155 contract
+    uint256 public immutable mneeTokenId;
 
     /// @notice Maximum goals per user
     uint256 public constant MAX_GOALS = 50;
@@ -37,10 +39,12 @@ contract GoalLocker is IGoalLocker, ReentrancyGuard {
 
     /**
      * @notice Constructor
-     * @param _mneeToken Address of the MNEE token contract
+     * @param _mneeToken Address of the MNEE ERC-1155 token contract
+     * @param _mneeTokenId Token ID for MNEE within the ERC-1155 contract
      */
-    constructor(address _mneeToken) {
-        mneeToken = IERC20(_mneeToken);
+    constructor(address _mneeToken, uint256 _mneeTokenId) {
+        mneeToken = IERC1155(_mneeToken);
+        mneeTokenId = _mneeTokenId;
     }
 
     /**
@@ -77,6 +81,7 @@ contract GoalLocker is IGoalLocker, ReentrancyGuard {
         return goalId;
     }
 
+
     /**
      * @inheritdoc IGoalLocker
      */
@@ -89,8 +94,8 @@ contract GoalLocker is IGoalLocker, ReentrancyGuard {
         Goal storage goal = _userGoals[msg.sender][goalId];
         if (goal.isWithdrawn) revert GoalAlreadyWithdrawn();
 
-        // Transfer MNEE from user
-        mneeToken.safeTransferFrom(msg.sender, address(this), amount);
+        // Transfer MNEE from user using ERC-1155
+        mneeToken.safeTransferFrom(msg.sender, address(this), mneeTokenId, amount, "");
 
         uint256 previousAmount = goal.currentAmount;
         goal.currentAmount += amount;
@@ -105,7 +110,6 @@ contract GoalLocker is IGoalLocker, ReentrancyGuard {
             goal.isCompleted = true;
         }
     }
-
 
     /**
      * @inheritdoc IGoalLocker
@@ -130,7 +134,8 @@ contract GoalLocker is IGoalLocker, ReentrancyGuard {
         goal.currentAmount = 0;
         goal.isWithdrawn = true;
 
-        mneeToken.safeTransfer(msg.sender, amount);
+        // Transfer MNEE back to user using ERC-1155
+        mneeToken.safeTransferFrom(address(this), msg.sender, mneeTokenId, amount, "");
 
         emit GoalWithdrawn(msg.sender, goalId, amount);
     }
@@ -193,6 +198,7 @@ contract GoalLocker is IGoalLocker, ReentrancyGuard {
         return goals;
     }
 
+
     /**
      * @notice Internal function to check and emit milestone events
      * @param user The user address
@@ -254,5 +260,12 @@ contract GoalLocker is IGoalLocker, ReentrancyGuard {
         if (progress >= 50) return 50;
         if (progress >= 25) return 25;
         return 0;
+    }
+
+    /**
+     * @notice Required override for ERC1155Holder
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155Holder) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }

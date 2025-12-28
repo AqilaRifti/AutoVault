@@ -6,6 +6,7 @@ import { type Address } from 'viem';
  */
 export interface ContractAddresses {
     mnee: Address;
+    mneeTokenId: bigint;
     smartVault: Address;
     goalLocker: Address;
     dcaExecutor: Address;
@@ -13,7 +14,8 @@ export interface ContractAddresses {
 
 // Sepolia testnet addresses (update after deployment)
 export const SEPOLIA_ADDRESSES: ContractAddresses = {
-    mnee: '0xB69a340155d16D963A8173Cb3A6cBF4093aB26E9' as Address,
+    mnee: '0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF' as Address,
+    mneeTokenId: 0n, // ERC-1155 token ID for MNEE
     smartVault: '0x47846df5e07ffd869C50871de328AF21D3CEF4D3' as Address,
     goalLocker: '0xCDFdCdBbf3a11e9FA661F8DF3D1B2c6825F12252' as Address,
     dcaExecutor: '0x6602c410F6aB155BA7fBaB056CB394F21D19927C' as Address,
@@ -22,6 +24,7 @@ export const SEPOLIA_ADDRESSES: ContractAddresses = {
 // Local hardhat addresses (update after local deployment)
 export const HARDHAT_ADDRESSES: ContractAddresses = {
     mnee: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
+    mneeTokenId: 0n,
     smartVault: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address,
     goalLocker: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0' as Address,
     dcaExecutor: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9' as Address,
@@ -39,57 +42,105 @@ export function getContractAddresses(chainId: number): ContractAddresses {
     }
 }
 
-// MNEE Token ABI (ERC20 standard functions we need)
+// MNEE Token ABI (ERC-1155 standard functions we need)
 export const MNEE_ABI = [
+    // ERC-1155 balanceOf
     {
         name: 'balanceOf',
         type: 'function',
         stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
+        inputs: [
+            { name: 'account', type: 'address' },
+            { name: 'id', type: 'uint256' },
+        ],
         outputs: [{ name: '', type: 'uint256' }],
     },
+    // ERC-1155 balanceOfBatch
     {
-        name: 'allowance',
+        name: 'balanceOfBatch',
         type: 'function',
         stateMutability: 'view',
         inputs: [
-            { name: 'owner', type: 'address' },
-            { name: 'spender', type: 'address' },
+            { name: 'accounts', type: 'address[]' },
+            { name: 'ids', type: 'uint256[]' },
         ],
-        outputs: [{ name: '', type: 'uint256' }],
+        outputs: [{ name: '', type: 'uint256[]' }],
     },
+    // ERC-1155 isApprovedForAll (replaces allowance)
     {
-        name: 'approve',
+        name: 'isApprovedForAll',
         type: 'function',
-        stateMutability: 'nonpayable',
+        stateMutability: 'view',
         inputs: [
-            { name: 'spender', type: 'address' },
-            { name: 'amount', type: 'uint256' },
+            { name: 'account', type: 'address' },
+            { name: 'operator', type: 'address' },
         ],
         outputs: [{ name: '', type: 'bool' }],
     },
+    // ERC-1155 setApprovalForAll (replaces approve)
     {
-        name: 'transfer',
+        name: 'setApprovalForAll',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+            { name: 'operator', type: 'address' },
+            { name: 'approved', type: 'bool' },
+        ],
+        outputs: [],
+    },
+    // ERC-1155 safeTransferFrom
+    {
+        name: 'safeTransferFrom',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+            { name: 'from', type: 'address' },
+            { name: 'to', type: 'address' },
+            { name: 'id', type: 'uint256' },
+            { name: 'amount', type: 'uint256' },
+            { name: 'data', type: 'bytes' },
+        ],
+        outputs: [],
+    },
+    // ERC-1155 safeBatchTransferFrom
+    {
+        name: 'safeBatchTransferFrom',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+            { name: 'from', type: 'address' },
+            { name: 'to', type: 'address' },
+            { name: 'ids', type: 'uint256[]' },
+            { name: 'amounts', type: 'uint256[]' },
+            { name: 'data', type: 'bytes' },
+        ],
+        outputs: [],
+    },
+    // Mock mint function for testing
+    {
+        name: 'mint',
         type: 'function',
         stateMutability: 'nonpayable',
         inputs: [
             { name: 'to', type: 'address' },
             { name: 'amount', type: 'uint256' },
         ],
-        outputs: [{ name: '', type: 'bool' }],
+        outputs: [],
     },
+    // ERC-1155 uri
     {
-        name: 'decimals',
+        name: 'uri',
         type: 'function',
         stateMutability: 'view',
-        inputs: [],
-        outputs: [{ name: '', type: 'uint8' }],
-    },
-    {
-        name: 'symbol',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
+        inputs: [{ name: 'id', type: 'uint256' }],
         outputs: [{ name: '', type: 'string' }],
+    },
+    // supportsInterface
+    {
+        name: 'supportsInterface',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [{ name: 'interfaceId', type: 'bytes4' }],
+        outputs: [{ name: '', type: 'bool' }],
     },
 ] as const;

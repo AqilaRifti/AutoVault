@@ -153,6 +153,13 @@ export const DCA_EXECUTOR_ABI = [
     },
     {
         type: 'function',
+        name: 'mneeTokenId',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ name: '', type: 'uint256' }],
+    },
+    {
+        type: 'function',
         name: 'MIN_INTERVAL',
         stateMutability: 'view',
         inputs: [],

@@ -117,6 +117,13 @@ export const SMART_VAULT_ABI = [
     },
     {
         type: 'function',
+        name: 'mneeTokenId',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ name: '', type: 'uint256' }],
+    },
+    {
+        type: 'function',
         name: 'BASIS_POINTS',
         stateMutability: 'view',
         inputs: [],

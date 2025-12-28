@@ -119,6 +119,13 @@ export const GOAL_LOCKER_ABI = [
         inputs: [],
         outputs: [{ name: '', type: 'address' }],
     },
+    {
+        type: 'function',
+        name: 'mneeTokenId',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ name: '', type: 'uint256' }],
+    },
     // Write functions
     {
         type: 'function',

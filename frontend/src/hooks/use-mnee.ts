@@ -10,17 +10,18 @@ import { useQueryClient } from '@tanstack/react-query';
 export interface UseMNEEReturn {
     balance: bigint | undefined;
     formattedBalance: string;
-    allowance: bigint | undefined;
+    isApproved: boolean | undefined;
     isLoading: boolean;
-    approve: (spender: Address, amount: bigint) => Promise<void>;
+    approve: (operator: Address) => Promise<void>;
     isApproving: boolean;
     approvalTxHash: `0x${string}` | undefined;
     mint: (amount?: bigint) => void;
     isMinting: boolean;
     refetch: () => void;
+    tokenId: bigint;
 }
 
-export function useMNEE(spenderAddress?: Address): UseMNEEReturn {
+export function useMNEE(operatorAddress?: Address): UseMNEEReturn {
     const { address, chainId } = useAccount();
     const queryClient = useQueryClient();
 
@@ -28,26 +29,28 @@ export function useMNEE(spenderAddress?: Address): UseMNEEReturn {
         return chainId ? getContractAddresses(chainId) : getContractAddresses(11155111);
     }, [chainId]);
 
-    // Read MNEE balance
+    const tokenId = addresses.mneeTokenId;
+
+    // Read MNEE balance (ERC-1155 requires tokenId)
     const { data: balance, isLoading: isBalanceLoading, refetch: refetchBalance } = useReadContract({
         address: addresses.mnee,
         abi: MNEE_ABI,
         functionName: 'balanceOf',
-        args: address ? [address] : undefined,
+        args: address ? [address, tokenId] : undefined,
         query: {
             enabled: !!address,
             refetchInterval: 5000,
         },
     });
 
-    // Read allowance for spender
-    const { data: allowance, isLoading: isAllowanceLoading, refetch: refetchAllowance } = useReadContract({
+    // Read approval status for operator (ERC-1155 uses isApprovedForAll)
+    const { data: isApproved, isLoading: isApprovalLoading, refetch: refetchApproval } = useReadContract({
         address: addresses.mnee,
         abi: MNEE_ABI,
-        functionName: 'allowance',
-        args: address && spenderAddress ? [address, spenderAddress] : undefined,
+        functionName: 'isApprovedForAll',
+        args: address && operatorAddress ? [address, operatorAddress] : undefined,
         query: {
-            enabled: !!address && !!spenderAddress,
+            enabled: !!address && !!operatorAddress,
             refetchInterval: 5000,
         },
     });
@@ -67,7 +70,7 @@ export function useMNEE(spenderAddress?: Address): UseMNEEReturn {
     } = useWriteContract();
 
     // Wait for approval transaction
-    const { isLoading: isWaitingForApproval } = useWaitForTransactionReceipt({
+    const { isLoading: isWaitingForApproval, isSuccess: isApprovalSuccess } = useWaitForTransactionReceipt({
         hash: approvalTxHash,
     });
 
@@ -76,11 +79,21 @@ export function useMNEE(spenderAddress?: Address): UseMNEEReturn {
         hash: mintTxHash,
     });
 
+    // Refetch approval after successful approval tx
+    useEffect(() => {
+        if (isApprovalSuccess && approvalTxHash) {
+            toast.success('MNEE approved successfully!');
+            setTimeout(() => {
+                refetchApproval();
+                queryClient.invalidateQueries();
+            }, 2000);
+        }
+    }, [isApprovalSuccess, approvalTxHash, refetchApproval, queryClient]);
+
     // Refetch balance after successful mint
     useEffect(() => {
         if (isMintSuccess && mintTxHash) {
             toast.success('Test MNEE minted successfully!');
-            // Refetch balance after a short delay
             setTimeout(() => {
                 refetchBalance();
                 queryClient.invalidateQueries();
@@ -88,13 +101,13 @@ export function useMNEE(spenderAddress?: Address): UseMNEEReturn {
         }
     }, [isMintSuccess, mintTxHash, refetchBalance, queryClient]);
 
-    // Approve function
-    const approve = useCallback(async (spender: Address, amount: bigint) => {
+    // Approve function (ERC-1155 uses setApprovalForAll)
+    const approve = useCallback(async (operator: Address) => {
         writeContract({
             address: addresses.mnee,
             abi: MNEE_ABI,
-            functionName: 'approve',
-            args: [spender, amount],
+            functionName: 'setApprovalForAll',
+            args: [operator, true],
         });
     }, [writeContract, addresses.mnee]);
 
@@ -106,16 +119,7 @@ export function useMNEE(spenderAddress?: Address): UseMNEEReturn {
         }
         writeMint({
             address: addresses.mnee,
-            abi: [...MNEE_ABI, {
-                inputs: [
-                    { name: 'to', type: 'address' },
-                    { name: 'amount', type: 'uint256' }
-                ],
-                name: 'mint',
-                outputs: [],
-                stateMutability: 'nonpayable',
-                type: 'function'
-            }],
+            abi: MNEE_ABI,
             functionName: 'mint',
             args: [address, amount],
         });
@@ -133,30 +137,31 @@ export function useMNEE(spenderAddress?: Address): UseMNEEReturn {
 
     const refetch = useCallback(() => {
         refetchBalance();
-        refetchAllowance();
-    }, [refetchBalance, refetchAllowance]);
+        refetchApproval();
+    }, [refetchBalance, refetchApproval]);
 
     return {
         balance,
         formattedBalance,
-        allowance,
-        isLoading: isBalanceLoading || isAllowanceLoading,
+        isApproved,
+        isLoading: isBalanceLoading || isApprovalLoading,
         approve,
         isApproving: isApproving || isWaitingForApproval,
         approvalTxHash,
         mint,
         isMinting: isMintPending || isWaitingForMint,
         refetch,
+        tokenId,
     };
 }
 
-// Helper hook to check if approval is needed
+// Helper hook to check if approval is needed (ERC-1155 version)
 export function useNeedsApproval(
-    spenderAddress: Address | undefined,
-    amount: bigint
+    operatorAddress: Address | undefined,
+    _amount: bigint // amount not needed for ERC-1155, but kept for API compatibility
 ): boolean {
-    const { allowance } = useMNEE(spenderAddress);
+    const { isApproved } = useMNEE(operatorAddress);
 
-    if (!allowance || !spenderAddress) return true;
-    return allowance < amount;
+    if (isApproved === undefined || !operatorAddress) return true;
+    return !isApproved;
 }

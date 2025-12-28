@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/ISmartVault.sol";
 
@@ -10,12 +10,14 @@ import "./interfaces/ISmartVault.sol";
  * @title SmartVault
  * @notice Core contract for managing user buckets and automatic fund distribution
  * @dev Implements programmable savings buckets with percentage-based allocation
+ *      Updated to support ERC-1155 MNEE token
  */
-contract SmartVault is ISmartVault, ReentrancyGuard {
-    using SafeERC20 for IERC20;
+contract SmartVault is ISmartVault, ReentrancyGuard, ERC1155Holder {
+    /// @notice The MNEE token contract (ERC-1155)
+    IERC1155 public immutable mneeToken;
 
-    /// @notice The MNEE token used for deposits
-    IERC20 public immutable mneeToken;
+    /// @notice The MNEE token ID within the ERC-1155 contract
+    uint256 public immutable mneeTokenId;
 
     /// @notice Basis points constant (100% = 10000)
     uint256 public constant BASIS_POINTS = 10000;
@@ -45,10 +47,12 @@ contract SmartVault is ISmartVault, ReentrancyGuard {
 
     /**
      * @notice Constructor
-     * @param _mneeToken Address of the MNEE token contract
+     * @param _mneeToken Address of the MNEE ERC-1155 token contract
+     * @param _mneeTokenId Token ID for MNEE within the ERC-1155 contract
      */
-    constructor(address _mneeToken) {
-        mneeToken = IERC20(_mneeToken);
+    constructor(address _mneeToken, uint256 _mneeTokenId) {
+        mneeToken = IERC1155(_mneeToken);
+        mneeTokenId = _mneeTokenId;
     }
 
     /**
@@ -65,6 +69,7 @@ contract SmartVault is ISmartVault, ReentrancyGuard {
         // Investment: 10%
         _createBucketInternal(user, "Investment", 1000, "#8b5cf6");
     }
+
 
     /**
      * @notice Internal bucket creation
@@ -115,7 +120,6 @@ contract SmartVault is ISmartVault, ReentrancyGuard {
         return _createBucketInternal(msg.sender, name, percentage, color);
     }
 
-
     /**
      * @inheritdoc ISmartVault
      */
@@ -133,8 +137,8 @@ contract SmartVault is ISmartVault, ReentrancyGuard {
             revert PercentageSumInvalid(totalPercentage, BASIS_POINTS);
         }
 
-        // Transfer MNEE from user
-        mneeToken.safeTransferFrom(msg.sender, address(this), amount);
+        // Transfer MNEE from user using ERC-1155 safeTransferFrom
+        mneeToken.safeTransferFrom(msg.sender, address(this), mneeTokenId, amount, "");
 
         // Distribute to buckets based on percentages
         uint256 distributed = 0;
@@ -181,7 +185,8 @@ contract SmartVault is ISmartVault, ReentrancyGuard {
         bucket.balance -= amount;
         _totalBalances[msg.sender] -= amount;
 
-        mneeToken.safeTransfer(msg.sender, amount);
+        // Transfer MNEE back to user using ERC-1155
+        mneeToken.safeTransferFrom(address(this), msg.sender, mneeTokenId, amount, "");
 
         emit Withdrawn(msg.sender, bucketId, amount);
     }
@@ -230,6 +235,7 @@ contract SmartVault is ISmartVault, ReentrancyGuard {
 
         emit Rebalanced(msg.sender, totalBalance);
     }
+
 
     /**
      * @inheritdoc ISmartVault
@@ -352,5 +358,12 @@ contract SmartVault is ISmartVault, ReentrancyGuard {
      */
     function getTotalPercentage(address user) external view returns (uint256) {
         return _getTotalPercentage(user);
+    }
+
+    /**
+     * @notice Required override for ERC1155Holder
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155Holder) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }

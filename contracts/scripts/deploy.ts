@@ -17,6 +17,9 @@ async function main() {
     // Get MNEE address from env or deploy mock
     let mneeAddress = process.env.MNEE_ADDRESS;
 
+    // MNEE Token ID for ERC-1155 (default to 0 for the main fungible token)
+    const mneeTokenId = process.env.MNEE_TOKEN_ID ? BigInt(process.env.MNEE_TOKEN_ID) : 0n;
+
     if (!mneeAddress || mneeAddress === "") {
         console.log("\nDeploying MockMNEE for testing...");
         const MockMNEE = await ethers.getContractFactory("MockMNEE");
@@ -26,12 +29,13 @@ async function main() {
         console.log("MockMNEE deployed to:", mneeAddress);
     } else {
         console.log("\nUsing existing MNEE at:", mneeAddress);
+        console.log("MNEE Token ID:", mneeTokenId.toString());
     }
 
     // Deploy SmartVault
     console.log("\nDeploying SmartVault...");
     const SmartVault = await ethers.getContractFactory("SmartVault");
-    const smartVault = await SmartVault.deploy(mneeAddress, { gasPrice });
+    const smartVault = await SmartVault.deploy(mneeAddress, mneeTokenId, { gasPrice });
     console.log("Transaction sent, waiting for confirmation...");
     await smartVault.waitForDeployment();
     const smartVaultAddress = await smartVault.getAddress();
@@ -40,7 +44,7 @@ async function main() {
     // Deploy GoalLocker
     console.log("\nDeploying GoalLocker...");
     const GoalLocker = await ethers.getContractFactory("GoalLocker");
-    const goalLocker = await GoalLocker.deploy(mneeAddress, { gasPrice });
+    const goalLocker = await GoalLocker.deploy(mneeAddress, mneeTokenId, { gasPrice });
     console.log("Transaction sent, waiting for confirmation...");
     await goalLocker.waitForDeployment();
     const goalLockerAddress = await goalLocker.getAddress();
@@ -50,7 +54,7 @@ async function main() {
     console.log("\nDeploying DCAExecutor...");
     const swapRouter = process.env.UNISWAP_ROUTER || ethers.ZeroAddress;
     const DCAExecutor = await ethers.getContractFactory("DCAExecutor");
-    const dcaExecutor = await DCAExecutor.deploy(mneeAddress, swapRouter, { gasPrice });
+    const dcaExecutor = await DCAExecutor.deploy(mneeAddress, mneeTokenId, swapRouter, { gasPrice });
     console.log("Transaction sent, waiting for confirmation...");
     await dcaExecutor.waitForDeployment();
     const dcaExecutorAddress = await dcaExecutor.getAddress();
@@ -64,6 +68,7 @@ async function main() {
         timestamp: new Date().toISOString(),
         contracts: {
             mnee: mneeAddress,
+            mneeTokenId: mneeTokenId.toString(),
             smartVault: smartVaultAddress,
             goalLocker: goalLockerAddress,
             dcaExecutor: dcaExecutorAddress,
@@ -76,6 +81,7 @@ async function main() {
 
     console.log("\n=== Deployment Summary ===");
     console.log("MNEE Token:", mneeAddress);
+    console.log("MNEE Token ID:", mneeTokenId.toString());
     console.log("SmartVault:", smartVaultAddress);
     console.log("GoalLocker:", goalLockerAddress);
     console.log("DCAExecutor:", dcaExecutorAddress);

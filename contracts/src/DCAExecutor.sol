@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -11,12 +13,16 @@ import "./interfaces/IDCAExecutor.sol";
  * @title DCAExecutor
  * @notice Contract for managing automated DCA (Dollar Cost Averaging) strategies
  * @dev Integrates with Uniswap V3 for token swaps
+ *      Updated to support ERC-1155 MNEE token as input
  */
-contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
+contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable, ERC1155Holder {
     using SafeERC20 for IERC20;
 
-    /// @notice The MNEE token used as input for DCA
-    IERC20 public immutable mneeToken;
+    /// @notice The MNEE token contract (ERC-1155)
+    IERC1155 public immutable mneeToken;
+
+    /// @notice The MNEE token ID within the ERC-1155 contract
+    uint256 public immutable mneeTokenId;
 
     /// @notice Uniswap V3 Router address (for swaps)
     address public swapRouter;
@@ -65,17 +71,21 @@ contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
     event FundsAllocated(address indexed user, uint256 amount);
     event FundsWithdrawn(address indexed user, uint256 amount);
 
+
     /**
      * @notice Constructor
-     * @param _mneeToken Address of the MNEE token contract
+     * @param _mneeToken Address of the MNEE ERC-1155 token contract
+     * @param _mneeTokenId Token ID for MNEE within the ERC-1155 contract
      * @param _swapRouter Address of the Uniswap V3 Router
      */
     constructor(
         address _mneeToken,
+        uint256 _mneeTokenId,
         address _swapRouter
     ) Ownable(msg.sender) {
         if (_mneeToken == address(0)) revert ZeroAddress();
-        mneeToken = IERC20(_mneeToken);
+        mneeToken = IERC1155(_mneeToken);
+        mneeTokenId = _mneeTokenId;
         swapRouter = _swapRouter;
         
         // Owner is authorized keeper by default
@@ -108,7 +118,8 @@ contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
     function allocateFunds(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
         
-        mneeToken.safeTransferFrom(msg.sender, address(this), amount);
+        // Transfer MNEE from user using ERC-1155
+        mneeToken.safeTransferFrom(msg.sender, address(this), mneeTokenId, amount, "");
         _allocatedFunds[msg.sender] += amount;
         
         emit FundsAllocated(msg.sender, amount);
@@ -125,11 +136,12 @@ contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
         }
         
         _allocatedFunds[msg.sender] -= amount;
-        mneeToken.safeTransfer(msg.sender, amount);
+        
+        // Transfer MNEE back to user using ERC-1155
+        mneeToken.safeTransferFrom(address(this), msg.sender, mneeTokenId, amount, "");
         
         emit FundsWithdrawn(msg.sender, amount);
     }
-
 
     /**
      * @inheritdoc IDCAExecutor
@@ -174,6 +186,7 @@ contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
 
         return strategyId;
     }
+
 
     /**
      * @inheritdoc IDCAExecutor
@@ -227,6 +240,7 @@ contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
     /**
      * @notice Internal swap execution
      * @dev In production, this would integrate with Uniswap V3
+     *      Note: For ERC-1155 MNEE, we'd need a DEX that supports 1155 or wrap first
      */
     function _executeSwap(
         uint256 amountIn,
@@ -236,6 +250,7 @@ contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
     ) internal returns (uint256 amountOut) {
         // For hackathon demo: simplified swap simulation
         // In production: integrate with Uniswap V3 Router
+        // Note: May need to wrap ERC-1155 MNEE to ERC-20 for DEX compatibility
         
         if (swapRouter == address(0)) {
             // Mock swap for testing - return 1:1 ratio
@@ -245,17 +260,12 @@ contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
         }
 
         // Production implementation would:
-        // 1. Approve router to spend MNEE
-        // 2. Call exactInputSingle on Uniswap V3
-        // 3. Verify output meets slippage requirements
-        // 4. Transfer output tokens to recipient
+        // 1. Wrap ERC-1155 MNEE to ERC-20 if needed
+        // 2. Approve router to spend wrapped MNEE
+        // 3. Call exactInputSingle on Uniswap V3
+        // 4. Verify output meets slippage requirements
+        // 5. Transfer output tokens to recipient
 
-        // Placeholder for actual swap logic
-        // bytes memory swapData = abi.encodeWithSignature(
-        //     "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
-        //     address(mneeToken), tokenOut, 3000, recipient, amountIn, minAmountOut, 0
-        // );
-        
         return amountIn; // Simplified for demo
     }
 
@@ -311,6 +321,7 @@ contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
         
         emit StrategyCancelled(msg.sender, strategyId, refundAmount);
     }
+
 
     /**
      * @inheritdoc IDCAExecutor
@@ -394,5 +405,12 @@ contract DCAExecutor is IDCAExecutor, ReentrancyGuard, Ownable {
         }
         
         return strategy.lastExecution + strategy.intervalSeconds;
+    }
+
+    /**
+     * @notice Required override for ERC1155Holder
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155Holder) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }
