@@ -39,13 +39,13 @@ export function Header({
     return (
         <header
             className={cn(
-                'sticky top-0 z-50 w-full px-5',
+                'sticky top-0 z-50 w-full',
                 'bg-background/80 backdrop-blur-lg',
                 'border-b border-border/50',
                 className
             )}
         >
-            <div className="container flex h-16 items-center justify-between gap-4">
+            <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6 lg:px-8">
                 {/* Left section */}
                 <div className="flex items-center gap-3">
                     {/* Mobile menu button */}
